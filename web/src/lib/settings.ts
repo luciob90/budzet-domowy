@@ -1,15 +1,16 @@
 import type { Settings } from '../types'
 
 const KEY = 'budzet.settings'
+const DEFAULTS: Settings = { url: '', token: '', person: '', email: '' }
 
 export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return { url: '', token: '', person: '', ...JSON.parse(raw) }
+    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) }
   } catch {
     // storage unavailable — fall through to defaults
   }
-  return { url: '', token: '', person: '' }
+  return { ...DEFAULTS }
 }
 
 export function saveSettings(s: Settings): void {

@@ -38,6 +38,8 @@ function handle_(p) {
       case 'add': data = withLock_(function () { return addTransaction_(p); }); break;
       case 'delete': data = withLock_(function () { return deleteTransaction_(p.clientId); }); break;
       case 'setAccount': data = withLock_(function () { return setAccount_(p); }); break;
+      case 'reminder': data = getReminder_(p.email); break;
+      case 'setReminder': data = withLock_(function () { return setReminder_(p); }); break;
       default: throw new Error('Nieznana akcja: ' + p.action);
     }
     return json_({ ok: true, data: data });

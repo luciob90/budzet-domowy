@@ -75,4 +75,11 @@ export interface Settings {
   url: string
   token: string
   person: string
+  email: string
+}
+
+export interface Reminder {
+  email: string
+  enabled: boolean
+  hour: number
 }

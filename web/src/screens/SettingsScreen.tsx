@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { PendingTx, Settings } from '../types'
+import type { PendingTx, Reminder, Settings } from '../types'
 import { api } from '../api/client'
 import { flush, onQueueChange, pendingItems } from '../lib/queue'
 import { saveSettings } from '../lib/settings'
@@ -23,7 +23,7 @@ export function SettingsScreen({ settings, onChange }: Props) {
   const dirty = draft.url !== settings.url || draft.token !== settings.token || draft.person !== settings.person
 
   async function saveAndTest() {
-    const s = { url: draft.url.trim(), token: draft.token.trim(), person: draft.person.trim() }
+    const s = { ...settings, url: draft.url.trim(), token: draft.token.trim(), person: draft.person.trim() }
     saveSettings(s)
     onChange(s)
     setTesting(true)
@@ -63,6 +63,8 @@ export function SettingsScreen({ settings, onChange }: Props) {
       </button>
       {status && <p className={'center ' + (status.ok ? 'pos' : 'neg')} role="status">{status.text}</p>}
 
+      <ReminderSection settings={settings} onChange={onChange} />
+
       <h2 className="section-title">Kolejka offline</h2>
       <p className="muted">
         {pending.length === 0 ? 'Wszystkie wpisy są wysłane.' : `Oczekuje: ${pending.length} (szczegóły w Historii).`}
@@ -74,5 +76,72 @@ export function SettingsScreen({ settings, onChange }: Props) {
         Android (Chrome): menu ⋮ → „Zainstaluj aplikację". iPhone/iPad (Safari): Udostępnij → „Do ekranu początkowego".
       </p>
     </div>
+  )
+}
+
+const HOURS = Array.from({ length: 24 }, (_, h) => h)
+
+/** Per-person daily e-mail reminder: address, on/off and hour, stored by the Apps Script. */
+function ReminderSection({ settings, onChange }: Props) {
+  const [email, setEmail] = useState(settings.email)
+  const [reminder, setReminder] = useState<Reminder | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null)
+
+  useEffect(() => {
+    if (!settings.email || !settings.url || !settings.token) return
+    let cancelled = false
+    api.reminder(settings.email)
+      .then(r => { if (!cancelled) setReminder(r) })
+      .catch(e => { if (!cancelled) setStatus({ text: e instanceof Error ? e.message : String(e), ok: false }) })
+    return () => { cancelled = true }
+  }, [settings.email, settings.url, settings.token])
+
+  async function save(next: Reminder) {
+    setBusy(true)
+    setStatus(null)
+    try {
+      const r = await api.setReminder(next)
+      setReminder(r)
+      if (r.email !== settings.email) {
+        const s = { ...settings, email: r.email }
+        saveSettings(s)
+        onChange(s)
+      }
+      setStatus({ text: r.enabled ? `Przypomnienie codziennie ok. ${r.hour}:00 na ${r.email}.` : 'Przypomnienie wyłączone.', ok: true })
+    } catch (e) {
+      setStatus({ text: e instanceof Error ? e.message : String(e), ok: false })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const current = reminder && reminder.email === email.trim().toLowerCase() ? reminder : null
+  const hour = current?.hour ?? 22
+  const enabled = current?.enabled ?? false
+
+  return (
+    <>
+      <h2 className="section-title">Przypomnienie e-mail</h2>
+      <div className="field">
+        <label className="field-label" htmlFor="remail">Twój e-mail</label>
+        <input id="remail" className="input" type="email" autoComplete="email" placeholder="np. lucek@gmail.com"
+          value={email} onChange={e => setEmail(e.target.value)} />
+      </div>
+      <div className="row">
+        <label className="check grow">
+          <input type="checkbox" checked={enabled} disabled={busy || !email.trim()}
+            onChange={e => void save({ email, enabled: e.target.checked, hour })} />
+          Codzienne przypomnienie
+        </label>
+        <select className="input hour-select" aria-label="Godzina przypomnienia" value={hour}
+          disabled={busy || !email.trim()}
+          onChange={e => void save({ email, enabled: enabled || !current, hour: Number(e.target.value) })}>
+          {HOURS.map(h => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}
+        </select>
+      </div>
+      {status && <p className={'small ' + (status.ok ? 'pos' : 'neg')} role="status">{status.text}</p>}
+      <p className="muted small">E-mail przychodzi w ciągu godziny od wybranej pory, z podsumowaniem dnia i miesiąca.</p>
+    </>
   )
 }

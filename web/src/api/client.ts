@@ -1,4 +1,4 @@
-import type { AccountsData, Categories, LogEntry, MonthData, Tx } from '../types'
+import type { AccountsData, Categories, LogEntry, MonthData, Reminder, Tx } from '../types'
 import { loadSettings } from '../lib/settings'
 
 /** Error reported by the Apps Script backend (as opposed to a network failure). */
@@ -66,4 +66,6 @@ export const api = {
   remove: (clientId: string) => post<{ entry: LogEntry }>('delete', { clientId }),
   setAccount: (m: number, section: 'assets' | 'debts', name: string, value: number | '') =>
     post<{ name: string; value: number | null }>('setAccount', { m, section, name, value }),
+  reminder: (email: string) => get<Reminder>('reminder', { email }),
+  setReminder: (r: Reminder) => post<Reminder>('setReminder', r),
 }
