@@ -48,6 +48,14 @@ Po zmianie kodu: **Wdróż → Zarządzaj wdrożeniami → Edytuj → Nowa wersj
 
 Alternatywnie zamiast kopiowania możesz użyć [clasp](https://github.com/google/clasp): `clasp clone <scriptId>` w katalogu `apps-script/`, a potem `clasp push`.
 
+### Przypomnienia e-mail (opcjonalnie)
+Codziennie o 22:00 skrypt wysyła e-mail z podsumowaniem dnia i miesiąca oraz przyciskiem otwierającym aplikację.
+1. W Apps Script dodaj plik skryptu **Reminders** z zawartością [apps-script/Reminders.js](apps-script/Reminders.js) i zapisz.
+2. Wybierz funkcję `setupReminders` na liście u góry edytora i kliknij **Uruchom**. Zatwierdź uprawnienia (wysyłanie e-maili).
+3. Opcjonalnie w Właściwościach skryptu dodaj `REMINDER_EMAILS` (adresy oddzielone przecinkami; domyślnie właściciel skryptu).
+
+Aby wyłączyć przypomnienia, uruchom `removeReminders`. Ponowne wdrażanie aplikacji internetowej nie jest potrzebne.
+
 ### 2. Frontend: GitHub Pages
 1. Utwórz repozytorium na GitHubie i wypchnij ten katalog (`main`).
 2. Settings → Pages → Source: **GitHub Actions**.
