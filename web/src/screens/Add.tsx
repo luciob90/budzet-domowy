@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Categories, TxType } from '../types'
 import { fmtMoney, today, yesterday } from '../lib/format'
 import { evaluate, pressKey, pretty, sanitize } from '../lib/calc'
@@ -32,6 +32,23 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
   const calc = evaluate(amount)
   const value = calc.value
   const valid = value > 0 && sel !== null && Boolean(date)
+
+  // the category picker is a history entry, so the phone's Back button closes it
+  useEffect(() => {
+    if (!picker) return
+    const onPop = () => setPicker(false)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [picker])
+
+  function openPicker() {
+    history.pushState({ ...history.state, picker: true, root: false }, '')
+    setPicker(true)
+  }
+
+  function closePicker() {
+    history.back() // popstate closes the picker
+  }
 
   function switchType(t: TxType) {
     setType(t)
@@ -135,7 +152,7 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
             })}
           </div>
         )}
-        <button className="select-btn" disabled={!categories} onClick={() => setPicker(true)}>
+        <button className="select-btn" disabled={!categories} onClick={openPicker}>
           {sel ? <><span className="muted">{sel.group} ›</span> {sel.category}</> : 'Wybierz kategorię…'}
         </button>
       </div>
@@ -164,8 +181,8 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
       {picker && (
         <CategoryPicker
           groups={groups}
-          onClose={() => setPicker(false)}
-          onPick={(group, category) => { setSel({ group, category }); setPicker(false) }}
+          onClose={closePicker}
+          onPick={(group, category) => { setSel({ group, category }); closePicker() }}
         />
       )}
     </div>

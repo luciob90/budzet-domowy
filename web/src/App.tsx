@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Categories, PendingTx, Settings } from './types'
 import { api } from './api/client'
 import { currentMonth } from './lib/format'
@@ -24,7 +24,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings)
   const configured = isConfigured(settings)
-  const [tab, setTab] = useState<Tab>(configured ? 'add' : 'settings')
+  const [tab, setTabState] = useState<Tab>(configured ? 'add' : 'settings')
+  const setTab = useBackNavigation(tab, setTabState)
   const [version, setVersion] = useState(0)
   const [pending, setPending] = useState<PendingTx[]>([])
   const bump = useCallback(() => setVersion(v => v + 1), [])
@@ -90,4 +91,39 @@ export function App() {
       </nav>
     </div>
   )
+}
+
+/**
+ * Makes the phone's Back button work inside the app: leaving the start tab pushes one
+ * history entry, so Back returns to the start tab and only then exits the app.
+ */
+function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void): (t: Tab) => void {
+  const tabRef = useRef(tab)
+  tabRef.current = tab
+  const homeRef = useRef(tab)
+  const pushedRef = useRef(false)
+
+  useEffect(() => {
+    history.replaceState({ tab: homeRef.current, root: true }, '')
+    const onPop = (e: PopStateEvent) => {
+      const state = e.state as { tab?: Tab; root?: boolean } | null
+      pushedRef.current = !state?.root
+      setTabState(state?.tab ?? homeRef.current)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [setTabState])
+
+  return useCallback((t: Tab) => {
+    const cur = tabRef.current
+    if (t === cur) return
+    if (t === homeRef.current && pushedRef.current) {
+      history.back() // popstate switches the tab
+      return
+    }
+    if (pushedRef.current) history.replaceState({ tab: t }, '')
+    else history.pushState({ tab: t }, '')
+    pushedRef.current = true
+    setTabState(t)
+  }, [setTabState])
 }
