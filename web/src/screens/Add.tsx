@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Categories, TxType } from '../types'
-import { fmtMoney, parseAmount, today, yesterday } from '../lib/format'
+import { fmtMoney, today, yesterday } from '../lib/format'
+import { evaluate, pressKey, pretty, sanitize } from '../lib/calc'
 import { loadRecent, pushRecent, type RecentCat } from '../lib/recent'
 import { enqueue, flush } from '../lib/queue'
 import { CategoryPicker } from './CategoryPicker'
@@ -28,7 +29,8 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
   const groups = categories ? categories[type] : []
   const recentForType = recent.filter(r => r.type === type &&
     groups.some(g => g.name === r.group && g.items.includes(r.category)))
-  const value = parseAmount(amount)
+  const calc = evaluate(amount)
+  const value = calc.value
   const valid = value > 0 && sel !== null && Boolean(date)
 
   function switchType(t: TxType) {
@@ -54,7 +56,8 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
         category: sel.category,
         amount: signed,
         date,
-        note: note.trim(),
+        // keep the breakdown of a multi-item entry in the note
+        note: calc.terms > 1 ? [note.trim(), `(${pretty(amount)})`].filter(Boolean).join(' ') : note.trim(),
         person,
       })
       setRecent(pushRecent({ type, group: sel.group, category: sel.category }))
@@ -79,19 +82,36 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
         <button role="tab" aria-selected={type === 'income'} className={type === 'income' ? 'on' : ''} onClick={() => switchType('income')}>Przychód</button>
       </div>
 
-      <label className="amount-field">
-        <span className="sr-only">Kwota</span>
-        {refund && <span className="amount-sign">−</span>}
-        <input
-          inputMode="decimal"
-          enterKeyHint="done"
-          placeholder="0,00"
-          value={amount}
-          onChange={e => setAmount(e.target.value.replace(/[^\d.,\s]/g, ''))}
-          aria-invalid={amount !== '' && !(value > 0)}
-        />
-        <span className="amount-cur">zł</span>
-      </label>
+      <div className="amount-box">
+        <label className="amount-field">
+          <span className="sr-only">Kwota</span>
+          {refund && <span className="amount-sign">−</span>}
+          <input
+            className={amount.length > 9 ? 'long' : ''}
+            inputMode="none"
+            placeholder="0,00"
+            value={pretty(amount)}
+            onChange={e => setAmount(sanitize(e.target.value))}
+            aria-invalid={amount !== '' && !(value > 0)}
+          />
+          <span className="amount-cur">zł</span>
+        </label>
+        {calc.terms > 1 && (
+          <div className={'amount-total' + (value > 0 ? '' : ' neg')}>
+            {Number.isNaN(value) ? '…' : '= ' + fmtMoney(refund ? -value : value)}
+          </div>
+        )}
+        <div className="keypad">
+          {['7', '8', '9', '⌫', '4', '5', '6', '-', '1', '2', '3', '+', 'C', '0', ','].map(k => (
+            <button key={k} type="button"
+              className={'key' + ('+-'.includes(k) ? ' op' : '') + (k === 'C' || k === '⌫' ? ' fn' : '')}
+              aria-label={k === '⌫' ? 'Usuń znak' : k === 'C' ? 'Wyczyść' : k === '-' ? 'Minus' : k === '+' ? 'Plus' : undefined}
+              onClick={() => setAmount(a => pressKey(a, k))}>
+              {k === '-' ? '−' : k}
+            </button>
+          ))}
+        </div>
+      </div>
       {type === 'expense' && (
         <label className="check">
           <input type="checkbox" checked={refund} onChange={e => setRefund(e.target.checked)} />

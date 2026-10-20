@@ -196,3 +196,18 @@ input { font: inherit; color: inherit; }
 .neg { color: var(--neg); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .hour-select { width: auto; min-width: 110px; }
+
+/* calculator */
+.amount-box { display: flex; flex-direction: column; gap: 8px; }
+.amount-field input.long { font-size: 1.7rem; }
+.amount-total { text-align: right; font-size: 1.2rem; font-weight: 700; color: var(--accent); padding-right: 4px; font-variant-numeric: tabular-nums; }
+.amount-total.neg { color: var(--neg); }
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.key {
+  min-height: 52px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface);
+  font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.key:active { background: var(--surface-2); }
+.key.op { background: var(--accent-soft); color: var(--accent); border-color: transparent; font-size: 1.6rem; }
+.key.fn { color: var(--muted); }
+.keypad .key:last-child { grid-column: span 2; }
