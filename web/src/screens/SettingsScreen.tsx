@@ -75,6 +75,7 @@ export function SettingsScreen({ settings, onChange }: Props) {
       <p className="muted small">
         Android (Chrome): menu ⋮ → „Zainstaluj aplikację". iPhone/iPad (Safari): Udostępnij → „Do ekranu początkowego".
       </p>
+      <p className="muted small">Wersja z {__BUILD_TIME__}</p>
     </div>
   )
 }

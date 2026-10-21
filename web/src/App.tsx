@@ -25,7 +25,12 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings)
   const configured = isConfigured(settings)
   const [tab, setTabState] = useState<Tab>(configured ? 'add' : 'settings')
-  const setTab = useBackNavigation(tab, setTabState)
+  const [exitHint, setExitHint] = useState(false)
+  const showExitHint = useCallback(() => {
+    setExitHint(true)
+    window.setTimeout(() => setExitHint(false), 2500)
+  }, [])
+  const setTab = useBackNavigation(tab, setTabState, showExitHint)
   const [version, setVersion] = useState(0)
   const [pending, setPending] = useState<PendingTx[]>([])
   const bump = useCallback(() => setVersion(v => v + 1), [])
@@ -89,41 +94,60 @@ export function App() {
           </button>
         ))}
       </nav>
-    </div>
+
+      {exitHint && <div className="toast warn" role="status">Naciśnij „Wstecz” jeszcze raz, aby wyjść</div>}    </div>
   )
 }
 
 /**
- * Makes the phone's Back button work inside the app: leaving the start tab pushes one
- * history entry, so Back returns to the start tab and only then exits the app.
+ * Keeps the phone's Back button inside the app. History stack: root → home → (other tab).
+ * Back from another tab returns to the start tab; Back on the start tab lands on the root
+ * entry and only shows a hint, so leaving the app needs a second Back.
+ * Entries are pushed only during user interaction — Chrome skips entries pushed without it.
  */
-function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void): (t: Tab) => void {
+function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: () => void): (t: Tab) => void {
   const tabRef = useRef(tab)
   tabRef.current = tab
   const homeRef = useRef(tab)
-  const pushedRef = useRef(false)
+  const levelRef = useRef<'root' | 'home' | 'tab'>('root')
+  const hintRef = useRef(onExitHint)
+  hintRef.current = onExitHint
 
   useEffect(() => {
     history.replaceState({ tab: homeRef.current, root: true }, '')
+    levelRef.current = 'root'
+    // re-arm the guard entry on the next touch or key press
+    const arm = () => {
+      if (levelRef.current !== 'root') return
+      history.pushState({ tab: homeRef.current }, '')
+      levelRef.current = 'home'
+    }
     const onPop = (e: PopStateEvent) => {
       const state = e.state as { tab?: Tab; root?: boolean } | null
-      pushedRef.current = !state?.root
-      setTabState(state?.tab ?? homeRef.current)
+      const t = state?.tab ?? homeRef.current
+      levelRef.current = state?.root || !state ? 'root' : t === homeRef.current ? 'home' : 'tab'
+      if (levelRef.current === 'root') hintRef.current()
+      setTabState(t)
     }
+    window.addEventListener('pointerdown', arm, true)
+    window.addEventListener('keydown', arm, true)
     window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('pointerdown', arm, true)
+      window.removeEventListener('keydown', arm, true)
+      window.removeEventListener('popstate', onPop)
+    }
   }, [setTabState])
 
   return useCallback((t: Tab) => {
-    const cur = tabRef.current
-    if (t === cur) return
-    if (t === homeRef.current && pushedRef.current) {
+    if (t === tabRef.current) return
+    if (t === homeRef.current && levelRef.current === 'tab') {
       history.back() // popstate switches the tab
       return
     }
-    if (pushedRef.current) history.replaceState({ tab: t }, '')
+    if (levelRef.current === 'tab') history.replaceState({ tab: t }, '')
     else history.pushState({ tab: t }, '')
-    pushedRef.current = true
+    levelRef.current = t === homeRef.current ? 'home' : 'tab'
     setTabState(t)
   }, [setTabState])
 }

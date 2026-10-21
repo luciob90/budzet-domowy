@@ -42,7 +42,7 @@ export function Add({ categories, categoriesError, person, onSaved }: Props) {
   }, [picker])
 
   function openPicker() {
-    history.pushState({ ...history.state, picker: true, root: false }, '')
+    history.pushState({ ...history.state, picker: true }, '')
     setPicker(true)
   }
 

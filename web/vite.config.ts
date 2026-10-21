@@ -5,6 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   // relative base so the build works under any GitHub Pages path
   base: './',
+  // shown in Settings so it is easy to check that a phone runs the latest build
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', dateStyle: 'short', timeStyle: 'short' })),
+  },
   plugins: [
     react(),
     VitePWA({
