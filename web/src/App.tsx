@@ -116,7 +116,9 @@ function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: 
   useEffect(() => {
     history.replaceState({ tab: homeRef.current, root: true }, '')
     levelRef.current = 'root'
-    // re-arm the guard entry on the next touch or key press
+    // re-arm the guard entry on the next tap or key press; pointerdown does not count as
+    // user activation on touch screens, so only events that do are used
+    const ARM_EVENTS = ['click', 'touchend', 'keydown']
     const arm = () => {
       if (levelRef.current !== 'root') return
       history.pushState({ tab: homeRef.current }, '')
@@ -129,12 +131,10 @@ function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: 
       if (levelRef.current === 'root') hintRef.current()
       setTabState(t)
     }
-    window.addEventListener('pointerdown', arm, true)
-    window.addEventListener('keydown', arm, true)
+    ARM_EVENTS.forEach(ev => window.addEventListener(ev, arm, true))
     window.addEventListener('popstate', onPop)
     return () => {
-      window.removeEventListener('pointerdown', arm, true)
-      window.removeEventListener('keydown', arm, true)
+      ARM_EVENTS.forEach(ev => window.removeEventListener(ev, arm, true))
       window.removeEventListener('popstate', onPop)
     }
   }, [setTabState])
