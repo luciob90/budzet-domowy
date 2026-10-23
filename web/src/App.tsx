@@ -25,10 +25,10 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings)
   const configured = isConfigured(settings)
   const [tab, setTabState] = useState<Tab>(configured ? 'add' : 'settings')
-  const [exitHint, setExitHint] = useState(false)
-  const showExitHint = useCallback(() => {
-    setExitHint(true)
-    window.setTimeout(() => setExitHint(false), 2500)
+  const [exitHint, setExitHint] = useState<string | null>(null)
+  const showExitHint = useCallback((text: string) => {
+    setExitHint(text)
+    window.setTimeout(() => setExitHint(null), 3000)
   }, [])
   const setTab = useBackNavigation(tab, setTabState, showExitHint)
   const [version, setVersion] = useState(0)
@@ -95,17 +95,18 @@ export function App() {
         ))}
       </nav>
 
-      {exitHint && <div className="toast warn" role="status">Naciśnij „Wstecz” jeszcze raz, aby wyjść</div>}    </div>
+      {exitHint && <div className="toast warn" role="status">{exitHint}</div>}    </div>
   )
 }
 
 /**
  * Keeps the phone's Back button inside the app. History stack: root → home → (other tab).
  * Back from another tab returns to the start tab; Back on the start tab lands on the root
- * entry and only shows a hint, so leaving the app needs a second Back.
+ * entry and only shows a hint, so leaving the app needs a second Back. When something else
+ * precedes the app in history (some launchers leave a blank page there), Back never leaves.
  * Entries are pushed only during user interaction — Chrome skips entries pushed without it.
  */
-function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: () => void): (t: Tab) => void {
+function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: (text: string) => void): (t: Tab) => void {
   const tabRef = useRef(tab)
   tabRef.current = tab
   const homeRef = useRef(tab)
@@ -114,6 +115,8 @@ function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: 
   hintRef.current = onExitHint
 
   useEffect(() => {
+    // the app is not the first entry of this window: leaving via Back would show that page
+    const foreignBefore = history.length > 1
     history.replaceState({ tab: homeRef.current, root: true }, '')
     levelRef.current = 'root'
     // re-arm the guard entry on the next tap or key press; pointerdown does not count as
@@ -128,7 +131,15 @@ function useBackNavigation(tab: Tab, setTabState: (t: Tab) => void, onExitHint: 
       const state = e.state as { tab?: Tab; root?: boolean } | null
       const t = state?.tab ?? homeRef.current
       levelRef.current = state?.root || !state ? 'root' : t === homeRef.current ? 'home' : 'tab'
-      if (levelRef.current === 'root') hintRef.current()
+      if (levelRef.current === 'root') {
+        if (foreignBefore) {
+          history.pushState({ tab: homeRef.current }, '')
+          levelRef.current = 'home'
+          hintRef.current('Aby zamknąć aplikację, użyj przycisku ekranu głównego')
+        } else {
+          hintRef.current('Naciśnij „Wstecz” jeszcze raz, aby wyjść')
+        }
+      }
       setTabState(t)
     }
     ARM_EVENTS.forEach(ev => window.addEventListener(ev, arm, true))
